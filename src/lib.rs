@@ -91,7 +91,9 @@ pub fn create_backend(_unused: BackendConfig) -> ZResult<Box<dyn Backend>> {
     properties.insert("root".into(), root.to_string_lossy().into());
     properties.insert("version".into(), LONG_VERSION.clone());
 
+    debug!("Create admin status: {}", root.display());
     let admin_status = zenoh::properties::properties_to_json_value(&properties);
+    debug!("Return Backend: {}", root.display());
     Ok(Box::new(FileSystemBackend { admin_status, root }))
 }
 
@@ -122,6 +124,7 @@ impl Backend for FileSystemBackend {
     }
 
     async fn create_storage(&mut self, mut config: StorageConfig) -> ZResult<Box<dyn Storage>> {
+        debug!("Create storage with: {:?}", config);
         let path_expr = config.key_expr.clone();
         let path_prefix = config.strip_prefix.clone();
         if !path_expr.starts_with(&path_prefix) {
@@ -147,6 +150,7 @@ impl Backend for FileSystemBackend {
             }
         };
 
+        debug!("Get basedir...");
         let base_dir =
             if let Some(serde_json::Value::String(dir)) = config.rest.get(PROP_STORAGE_DIR) {
                 log::error!("dir={}, root={}", dir, self.root.display());
@@ -181,6 +185,7 @@ impl Backend for FileSystemBackend {
                 )
             };
 
+        debug!("Check basedir={}", base_dir.display());
         // check if base_dir exists and is readable (and writeable if not "read_only" mode)
         let mut dir_builder = DirBuilder::new();
         dir_builder.recursive(true);
@@ -221,8 +226,10 @@ impl Backend for FileSystemBackend {
             .rest
             .insert("dir_full_path".into(), base_dir.to_string_lossy().into());
 
+        debug!("Create FilesMgr");
         let files_mgr = FilesMgr::new(base_dir, follow_links, keep_mime, on_closure).await?;
 
+        debug!("Return Storage");
         Ok(Box::new(FileSystemStorage {
             admin_status: config,
             path_prefix,
